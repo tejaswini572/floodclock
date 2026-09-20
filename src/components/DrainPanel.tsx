@@ -21,7 +21,7 @@ const DrainPanel: React.FC<DrainPanelProps> = ({ drains, selectedDrainId, onSele
           >
             <div className="drain-status">
               <div className={`status-dot ${drain.blocked ? 'blocked' : 'clear'}`}></div>
-              <span>{drain.id}</span>
+              <span>{drain.label}</span>
               <span style={{ color: '#64748b', fontSize: '0.875rem' }}>
                 {drain.blocked ? 'Blocked' : 'Clear'}
               </span>

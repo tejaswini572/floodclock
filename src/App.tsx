@@ -3,43 +3,78 @@ import './App.css';
 import Map from './components/Map';
 import DrainPanel from './components/DrainPanel';
 import SummaryMetrics from './components/SummaryMetrics';
+import { demoWard } from './simulation/ward';
+import { simulate, compareDrains } from './simulation/engine';
+import type { SimulationInput, SimulationResult, DrainComparison } from './shared/types';
 
 export type DrainStatus = {
   id: string;
+  label: string;
   blocked: boolean;
 };
 
 function App() {
   const [rainfall, setRainfall] = useState(85);
   const [drains, setDrains] = useState<Record<string, DrainStatus>>({
-    D1: { id: 'D1', blocked: true },
-    D2: { id: 'D2', blocked: true },
-    D3: { id: 'D3', blocked: false },
+    'drain-a': { id: 'drain-a', label: 'D1', blocked: true },
+    'drain-b': { id: 'drain-b', label: 'D2', blocked: true },
+    'drain-c': { id: 'drain-c', label: 'D3', blocked: false },
   });
   const [selectedDrainId, setSelectedDrainId] = useState<string | null>(null);
-  const [hasRun, setHasRun] = useState(false);
+  const [simResult, setSimResult] = useState<SimulationResult | null>(null);
+  const [comparisons, setComparisons] = useState<DrainComparison[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const invalidateResults = () => {
+    setSimResult(null);
+    setComparisons(null);
+    setError(null);
+  };
 
   const handleDrainToggle = (id: string) => {
     setDrains(prev => ({
       ...prev,
       [id]: { ...prev[id], blocked: !prev[id].blocked }
     }));
-    setHasRun(false); // invalidate results
+    invalidateResults();
   };
 
   const resetState = () => {
     setRainfall(85);
     setDrains({
-      D1: { id: 'D1', blocked: true },
-      D2: { id: 'D2', blocked: true },
-      D3: { id: 'D3', blocked: false },
+      'drain-a': { id: 'drain-a', label: 'D1', blocked: true },
+      'drain-b': { id: 'drain-b', label: 'D2', blocked: true },
+      'drain-c': { id: 'drain-c', label: 'D3', blocked: false },
     });
     setSelectedDrainId(null);
-    setHasRun(false);
+    invalidateResults();
   };
 
   const runSimulation = () => {
-    setHasRun(true);
+    setError(null);
+    try {
+      const blockedDrainIds = Object.values(drains)
+        .filter(d => d.blocked)
+        .map(d => d.id);
+
+      const input: SimulationInput = {
+        ward: demoWard,
+        rainfallRate: rainfall,
+        duration: 3600,
+        timeStep: 10,
+        blockedDrainIds,
+        floodThreshold: 0.05,
+      };
+
+      const result = simulate(input);
+      const comps = compareDrains(input);
+      setSimResult(result);
+      setComparisons(comps);
+    } catch (err: any) {
+      setError(err.message || 'Simulation failed');
+      setSimResult(null);
+      setComparisons(null);
+    }
   };
 
   return (
@@ -63,7 +98,7 @@ function App() {
               value={rainfall} 
               onChange={(e) => {
                 setRainfall(Number(e.target.value));
-                setHasRun(false);
+                invalidateResults();
               }} 
             />
           </div>
@@ -75,17 +110,43 @@ function App() {
 
       <main className="main-content">
         <div className="map-container">
-          <Map drains={drains} selectedDrainId={selectedDrainId} onSelectDrain={setSelectedDrainId} />
+          <Map 
+            drains={drains} 
+            selectedDrainId={selectedDrainId} 
+            onSelectDrain={setSelectedDrainId} 
+            cellResults={simResult?.cellResults || null}
+            ward={demoWard}
+          />
         </div>
         
         <aside className="sidebar">
           <div className="panel">
             <h2>Recommendations</h2>
-            <p>
-              {hasRun 
-                ? "Simulation engine pending integration." 
-                : "Run the simulation to compare drain-clearing options."}
-            </p>
+            {error ? (
+              <p style={{ color: 'red' }}>{error}</p>
+            ) : !simResult ? (
+              <p>Run the simulation to compare drain-clearing options.</p>
+            ) : comparisons && comparisons.length > 0 ? (
+              <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                {comparisons.map(comp => {
+                  const label = drains[comp.clearedDrainId]?.label || comp.clearedDrainId;
+                  const delta = comp.deltaFinalFloodedCellCount;
+                  let text = 'no change in flooded zones';
+                  if (delta < 0) {
+                    text = `${Math.abs(delta)} fewer flooded zone${Math.abs(delta) !== 1 ? 's' : ''}`;
+                  } else if (delta > 0) {
+                    text = `${delta} more flooded zone${delta !== 1 ? 's' : ''}`;
+                  }
+                  return (
+                    <li key={comp.clearedDrainId} style={{ marginBottom: '8px' }}>
+                      <strong>{label}:</strong> {text}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p>No drains are currently blocked. No counterfactuals to run.</p>
+            )}
           </div>
 
           <DrainPanel 
@@ -96,12 +157,12 @@ function App() {
           />
 
           <button className="primary-button" onClick={runSimulation}>
-            {hasRun ? "Simulation engine pending integration" : "Run Simulation"}
+            Run Simulation
           </button>
         </aside>
       </main>
 
-      <SummaryMetrics hasRun={hasRun} />
+      <SummaryMetrics result={simResult} />
 
       <footer className="footer">
         <p>This is a synthetic model for demonstration purposes. Not for real-world flood prediction.</p>
