@@ -1,4 +1,4 @@
-import type { SimulationInput, SimulationResult, CellResult, Cell } from '../shared/types';
+import type { SimulationInput, SimulationResult, CellResult, Cell, DrainComparison } from '../shared/types';
 
 /**
  * Routing fraction coefficient: at most 25% of stored surface water in a cell
@@ -390,4 +390,88 @@ function validateInput(input: SimulationInput): void {
       throw new Error(`blockedDrainIds contains invalid or unknown drain ID: ${blockedId}`);
     }
   }
+}
+
+/**
+ * Counterfactual drain-clearing comparison.
+ *
+ * For each blocked drain in input.blockedDrainIds, reruns the identical simulation scenario
+ * with ONLY that one drain cleared (unblocked), keeping all other blocked drains unchanged.
+ *
+ * Sign convention for deltas:
+ *   delta = clearedResult metric - baselineResult metric
+ *
+ * A negative delta for flooded-cell counts indicates fewer flooded cells when the drain is cleared.
+ * A positive delta for drainedVolume indicates more water removed when the drain is cleared.
+ *
+ * Returns [] if there are no blocked drains — no counterfactual is possible.
+ * Duplicate drain IDs in blockedDrainIds are deduplicated; each drain is compared only once,
+ * in first-occurrence order.
+ *
+ * Does NOT mutate: input, input.blockedDrainIds, input.ward, or any ward sub-objects.
+ */
+export function compareDrains(input: SimulationInput): DrainComparison[] {
+  // Early return: no blocked drains means no counterfactual comparisons to make.
+  if (!input.blockedDrainIds || input.blockedDrainIds.length === 0) {
+    return [];
+  }
+
+  // Deduplicate blocked drain IDs while preserving first-occurrence order.
+  // The original input.blockedDrainIds array is never mutated.
+  const seen = new Set<string>();
+  const uniqueBlockedIds: string[] = [];
+  for (const id of input.blockedDrainIds) {
+    if (!seen.has(id)) {
+      seen.add(id);
+      uniqueBlockedIds.push(id);
+    }
+  }
+
+  // Run the baseline scenario ONCE with the original input, unchanged.
+  const baselineResult = simulate(input);
+
+  const comparisons: DrainComparison[] = [];
+
+  for (const clearedDrainId of uniqueBlockedIds) {
+    // Build a new blockedDrainIds array that excludes the cleared drain.
+    // This does NOT mutate input.blockedDrainIds.
+    const counterfactualBlockedIds = input.blockedDrainIds.filter(id => id !== clearedDrainId);
+
+    // Build a new SimulationInput preserving every field except blockedDrainIds.
+    // The ward reference is shared (not cloned) — ward data is readonly and never mutated.
+    const counterfactualInput: SimulationInput = {
+      ward: input.ward,
+      rainfallRate: input.rainfallRate,
+      duration: input.duration,
+      timeStep: input.timeStep,
+      floodThreshold: input.floodThreshold,
+      blockedDrainIds: counterfactualBlockedIds,
+    };
+
+    // Run the counterfactual simulation.
+    const clearedResult = simulate(counterfactualInput);
+
+    // Compute deltas: cleared metric minus baseline metric.
+    // Negative flooded-cell delta = fewer flooded cells after clearing.
+    // Positive drained-volume delta = more water removed after clearing.
+    const deltaFinalFloodedCellCount =
+      clearedResult.finalFloodedCellCount - baselineResult.finalFloodedCellCount;
+
+    const deltaPeakFloodedCellCount =
+      clearedResult.peakFloodedCellCount - baselineResult.peakFloodedCellCount;
+
+    const deltaTotalDrainedVolume =
+      clearedResult.totalDrainedVolume - baselineResult.totalDrainedVolume;
+
+    comparisons.push({
+      clearedDrainId,
+      baselineResult,
+      clearedResult,
+      deltaFinalFloodedCellCount,
+      deltaPeakFloodedCellCount,
+      deltaTotalDrainedVolume,
+    });
+  }
+
+  return comparisons;
 }
