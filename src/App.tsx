@@ -1,122 +1,113 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import './App.css';
+import Map from './components/Map';
+import DrainPanel from './components/DrainPanel';
+import SummaryMetrics from './components/SummaryMetrics';
+
+export type DrainStatus = {
+  id: string;
+  blocked: boolean;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [rainfall, setRainfall] = useState(85);
+  const [drains, setDrains] = useState<Record<string, DrainStatus>>({
+    D1: { id: 'D1', blocked: true },
+    D2: { id: 'D2', blocked: true },
+    D3: { id: 'D3', blocked: false },
+  });
+  const [selectedDrainId, setSelectedDrainId] = useState<string | null>(null);
+  const [hasRun, setHasRun] = useState(false);
+
+  const handleDrainToggle = (id: string) => {
+    setDrains(prev => ({
+      ...prev,
+      [id]: { ...prev[id], blocked: !prev[id].blocked }
+    }));
+    setHasRun(false); // invalidate results
+  };
+
+  const resetState = () => {
+    setRainfall(85);
+    setDrains({
+      D1: { id: 'D1', blocked: true },
+      D2: { id: 'D2', blocked: true },
+      D3: { id: 'D3', blocked: false },
+    });
+    setSelectedDrainId(null);
+    setHasRun(false);
+  };
+
+  const runSimulation = () => {
+    setHasRun(true);
+  };
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-container">
+      <header className="header">
+        <div className="header-content">
+          <span className="badge">Synthetic Demo</span>
+          <h1>See where water builds up.</h1>
+          <p>Adjust the rainfall and clear drains to see the impact.</p>
+          
+          <div className="slider-container">
+            <div className="slider-header">
+              <label htmlFor="rainfall">Rainfall intensity</label>
+              <span>{rainfall} mm/hour</span>
+            </div>
+            <input 
+              id="rainfall"
+              type="range" 
+              min="0" 
+              max="150" 
+              value={rainfall} 
+              onChange={(e) => {
+                setRainfall(Number(e.target.value));
+                setHasRun(false);
+              }} 
+            />
+          </div>
         </div>
         <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+          <button className="button" onClick={resetState}>Reset Scenario</button>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <main className="main-content">
+        <div className="map-container">
+          <Map drains={drains} selectedDrainId={selectedDrainId} onSelectDrain={setSelectedDrainId} />
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        
+        <aside className="sidebar">
+          <div className="panel">
+            <h2>Recommendations</h2>
+            <p>
+              {hasRun 
+                ? "Simulation engine pending integration." 
+                : "Run the simulation to compare drain-clearing options."}
+            </p>
+          </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          <DrainPanel 
+            drains={drains} 
+            selectedDrainId={selectedDrainId}
+            onSelect={setSelectedDrainId}
+            onToggle={handleDrainToggle}
+          />
+
+          <button className="primary-button" onClick={runSimulation}>
+            {hasRun ? "Simulation engine pending integration" : "Run Simulation"}
+          </button>
+        </aside>
+      </main>
+
+      <SummaryMetrics hasRun={hasRun} />
+
+      <footer className="footer">
+        <p>This is a synthetic model for demonstration purposes. Not for real-world flood prediction.</p>
+      </footer>
+    </div>
+  );
 }
 
-export default App
+export default App;
