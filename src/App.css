@@ -177,37 +177,69 @@
   font-size: 0.875rem;
 }
 
-.map-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
-  gap: 2px;
-  background-color: #e2e8f0;
-  border: 2px solid #cbd5e1;
+/* New Map Styles */
+.map-wrapper {
   width: 100%;
-  max-width: 600px;
-  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.map-cell {
-  background-color: #f8fafc;
-  position: relative;
+.map-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.875rem;
 }
 
-.map-cell.road {
-  background-color: #cbd5e1;
+.grid-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
 }
 
-.map-cell.building {
-  background-color: #cbd5e1;
+.map-legend {
+  display: flex;
+  gap: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-color {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
   border-radius: 2px;
-  margin: 2px;
 }
 
-.drain-marker {
+.school-color { background-color: #fef08a; border: 1px solid #ca8a04; }
+.clinic-color { background-color: #fee2e2; border: 1px solid #dc2626; }
+.park-color { background-color: #dcfce7; }
+
+.svg-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #fdfbf7;
+}
+
+.ward-map {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.map-drain-marker {
   position: absolute;
-  top: 50%;
-  left: 50%;
   transform: translate(-50%, -50%);
   width: 32px;
   height: 32px;
@@ -216,17 +248,14 @@
   align-items: center;
   justify-content: center;
   font-size: 0.875rem;
-  font-weight: bold;
+  font-weight: 700;
   color: white;
-  z-index: 10;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   cursor: pointer;
-  border: none;
+  transition: transform 0.2s;
 }
 
-.drain-marker.blocked {
-  background-color: var(--danger);
-}
-.drain-marker.clear {
-  background-color: var(--success);
+.map-drain-marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
 }
